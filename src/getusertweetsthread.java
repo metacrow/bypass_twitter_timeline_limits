@@ -28,7 +28,7 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 
 	public getusertweetsthread (String user, Twitter twitter, int days) { 
 		this.user=user;
-	    this.timeline=new HashMap<Long, String[]>(150);
+	    this.timeline=new HashMap<Long, String[]>(30*days);//if an average user tweets 30 times a day, initial size is that times days. If 30 is right.
 	    this.twitter=twitter;
 	    this.days=days;
 	  }

@@ -42,7 +42,7 @@ public class twitter_limit {
 		twitter.setOAuthConsumer(CONSUMER_KEY, CONSUMER_SECRET);
 	}
 	
-	private static Map<Long, String[]> timeline = new HashMap<Long, String[]>(5000);//Using HashMap, as i do many insertions and gets, but only one sort
+	private static Map<Long, String[]> timeline;// going to be using HashMap, as i do many insertions and gets, but only one sort
 	
 	//used with Oauth_Authentication
 	private static void storeAccessToken(long l, AccessToken accessToken) throws IOException{
@@ -126,6 +126,7 @@ public class twitter_limit {
 	//MAJOR PART 2/4 *:* get a list of everyone user is following
 	private static List<String> following = new ArrayList<String>();
 	private static long [] ids;//need this global to store following to .txt
+	private static int numofdays;
 	private static void get_Following(boolean isstoredlocally) throws TwitterException, IOException{
 		if(!isstoredlocally){
 			IDs FriendsIDs = twitter.getFriendsIDs(-1);
@@ -147,6 +148,10 @@ public class twitter_limit {
 				ids[i]=Long.valueOf(temporary.get(i));
 			}
 		}
+		
+		//now that we know # of following, we can make an educated guess as to the initial size of the timeline Hashmap
+		timeline = new HashMap<Long, String[]>(ids.length*30*numofdays);//sure, 30 seems a good averaging number. i guess. Times numofdays to go back
+		
 		//convert ids to screen names
 		int start=0;
 		int currentchunksize=100;
@@ -176,7 +181,8 @@ public class twitter_limit {
 	}
 	
 	//store all the people user is following in txt file
-	//TODO inefficient, b/c GUI has to call twitter to convert the ids to screen name every time it start (if user stores them) BUT if i just save the screen name is someone changes theirs it could mess stuff up
+	//TODO FIX THIS THING
+	//		inefficient, b/c GUI has to call twitter to convert the ids to screen name every time it start (if user stores them) BUT if i just save the screen name is someone changes theirs it could mess stuff up
 	//		Possible solution, store both ids and screen name side by side in file, GUI can get stored screen names, program uses ids normally.
 	public static void store_following() throws TwitterException, IOException{
 		get_Following(false);
@@ -206,13 +212,14 @@ public class twitter_limit {
 	}
 	
 	//MAJOR PART 3/4 *:* getting the tweets
-	private static void create_threads_for_tweets(int numofdays){
+	private static void create_threads_for_tweets(){
 		Future<Map<Long, String[]>>[] tasks = new Future[following.size()];
+		//24 threads is working right now, and i don't want to mess with dynamically guessing the right number. Besides, real bottleneck is number of simultaneous connections, not cpu
 		ExecutorService executor = Executors.newFixedThreadPool(24);
 		
 		//go through all the screen name of following, get tweets w/ jsoup.
 		for(int i = 0; i < following.size(); i++) {
-			Callable<Map<Long, String[]>> temp= new getusertweetsthread(following.get(i), twitter,2);//Create thread per following
+			Callable<Map<Long, String[]>> temp= new getusertweetsthread(following.get(i), twitter,numofdays);//Create thread per following
 			tasks[i] = executor.submit(temp);
 		}
 		
@@ -307,8 +314,9 @@ public class twitter_limit {
 	
 	//final method, call to run entire process
 	public static void runwithgui(boolean follwingstored, int numofdays) throws IOException, URISyntaxException, TwitterException{
+		twitter_limit.numofdays=numofdays;
 		get_Following(follwingstored);
-		create_threads_for_tweets(numofdays);
+		create_threads_for_tweets();
 		sort_timeline();
 	}
 	
@@ -316,9 +324,10 @@ public class twitter_limit {
 	public static void runWithoutGUI() throws IOException, URISyntaxException, TwitterException{
 			Long test=System.currentTimeMillis();
 		Oauth_Authentication(false);
+		numofdays=2;
 		get_Following(false);
 			Long testthreads=System.currentTimeMillis();
-		create_threads_for_tweets(2);
+		create_threads_for_tweets();
 			System.out.println("Time of threads: " + (double)(System.currentTimeMillis()-testthreads)/(double)1000 + " seconds");
 			Long testwrite=System.currentTimeMillis();
 		sort_timeline();
