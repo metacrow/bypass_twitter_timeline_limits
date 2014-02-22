@@ -11,6 +11,7 @@ Basic little project i made that uses twitter API(Twitter4j, the java implementa
 Required Libraries/All Respective Licences of:
   JSoup http://jsoup.org/
   Twitter4j http://twitter4j.org
+  Apache Commons Lang http://commons.apache.org/proper/commons-lang/
 
 LICENSE (informal):
 In addition to the included library's license's terms,
