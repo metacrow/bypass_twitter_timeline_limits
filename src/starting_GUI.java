@@ -1,14 +1,9 @@
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -29,7 +24,7 @@ import twitter4j.TwitterException;
 
 public class starting_GUI {
 	public static void main(String[] args) {
-		createAndShowGUI(500,540);
+		createAndShowGUI(500,500);
 	}
 	
 	private static void createAndShowGUI(int height, int width) {
@@ -50,15 +45,15 @@ public class starting_GUI {
 @SuppressWarnings("serial")
 class Pane extends JPanel {
 	/*TODO
-	 * ( ) Organize all these GUI parts in a layout
+	 * (X) Organize all these GUI parts in a layout
 	 * (X) Show current logged in user, refresh user credentials or change user
 	 * (X) Option for user to store their following and use that
 	 * ( ) Can manually add to following list, store in separate list from twitter following
 	 * (X) Option to get user's following from twitter each run or on request
 	 * (X) Option to refresh list of followers if auto-refresh not checked
 	 * ( ) Current list of all following and added followers(color code)
-	 * ( ) Button at bottom to actually run program, only enabled if suer logged in or user stored list of following
-	 * ( ) Amount of time to go back
+	 * (X) Button at bottom to actually run program, only enabled if suer logged in or user stored list of following
+	 * (X) Amount of time to go back
 	 * ( ) For user that want immediate start up w/ no gui, settings file that contains default start up values, running twitter_limit directly uses these
 	 */
 	
@@ -69,8 +64,8 @@ class Pane extends JPanel {
 	private boolean followingstoredbool=false;
 	private int numberofdays=2;
 	//GUI elements that need to be global to be adjusted
-	private JButton refreshfollowing = new JButton("Get following from twitter");
-	private JButton savefollowing = new JButton("Save list of following");
+	private JButton restorefollowing = new JButton("<html>Restore original list of<br>following from twitter</html>");
+	private JButton savefollowing = new JButton("<html>Save this edited<br>list of following</html>");
 	private JLabel currentlogin= new JLabel();
 	private JTextPane listoffollowing = new JTextPane();
 	private JTextField numofdays = new JTextField(2);
@@ -102,7 +97,7 @@ class Pane extends JPanel {
 					currentlogin.setText("You are logged in as " + twitter_limit.current_loggedin_user());
 				} catch (IOException | TwitterException | IllegalStateException | URISyntaxException e1) {e1.printStackTrace();}
             	isuserloggedin=true;
-            	refreshfollowing.setEnabled(followingstoredbool && isuserloggedin);
+            	restorefollowing.setEnabled(followingstoredbool && isuserloggedin);
             	finalrun.setEnabled(isuserloggedin || followingstoredbool);
             }
 		});
@@ -121,22 +116,30 @@ class Pane extends JPanel {
 		//END
 		
 		//START: storing or updating following list
-		JCheckBox autorefreshfollowing = new JCheckBox("<html>Auto-Get list of following<br> every time program runs</html>");
+		JCheckBox autorestorefollowing = new JCheckBox("<html>Get following from<br>twitter instead of<br>using saved file</html>");
 		
-		autorefreshfollowing.setSelected(!followingstoredbool);
-		autorefreshfollowing.addActionListener(new ActionListener() {
+		autorestorefollowing.setSelected(!followingstoredbool);
+		autorestorefollowing.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e){
             	followingstoredbool ^= true;
-            	refreshfollowing.setEnabled(followingstoredbool && isuserloggedin);
+            	restorefollowing.setEnabled(followingstoredbool && isuserloggedin);
+            	savefollowing.setEnabled(followingstoredbool);
             	finalrun.setEnabled(isuserloggedin || followingstoredbool);
             	}
 		});
 		
-		refreshfollowing.setEnabled(followingstoredbool && isuserloggedin);
-		refreshfollowing.addActionListener(new ActionListener() {
+		restorefollowing.setEnabled(followingstoredbool && isuserloggedin);
+		restorefollowing.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e){
             	try {
-					twitter_limit.store_following();
+					twitter_limit.refresh_plus_store_following();
+					//after restoring, remember to set listoffollowing to this
+					List<String> following = twitter_limit.load_and_convert_following(isuserloggedin);
+					String followingtotext="";
+					for(String follow:following){
+						followingtotext+=follow + "\n";
+					}
+					listoffollowing.setText(followingtotext);
 				} catch (TwitterException | IOException e1) {e1.printStackTrace();}
             }
 		});
@@ -145,13 +148,8 @@ class Pane extends JPanel {
 		savefollowing.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e){
             	try {
-					BufferedWriter bw = new BufferedWriter(new FileWriter("following.txt"));
 					List<String> followingedit = Arrays.asList(listoffollowing.getText().split("\n"));
-					for(String following:followingedit){
-						bw.write(following);
-						bw.newLine();
-					}
-					bw.close();
+					twitter_limit.convert_and_save_following(followingedit);
 				} catch (IOException e1) {e1.printStackTrace();	}
             }
         });
@@ -159,15 +157,7 @@ class Pane extends JPanel {
 		//list following & option for user to add new following & option to remove following
 		//Basically, give user plain text stored following, user can edit it, and save it
 		if(followingstoredbool){
-			//TODO temporary
-							BufferedReader br = new BufferedReader(new FileReader("following.txt"));
-							List<String> following = new ArrayList<String>();
-							while (br.ready()){
-								following.add(br.readLine());
-							}
-							br.close();
-							
-			//List<String> following = twitter_limit.all_stored_following();
+			List<String> following = twitter_limit.load_and_convert_following(isuserloggedin);
 			String followingtotext="";
 			for(String follow:following){
 				followingtotext+=follow + "\n";
@@ -198,7 +188,7 @@ class Pane extends JPanel {
 		finalrun.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e){
             	try {
-					twitter_limit.runwithgui(followingstoredbool,numberofdays);
+					twitter_limit.runwithgui(followingstoredbool,numberofdays,isuserloggedin);
 				} catch (IOException | URISyntaxException | TwitterException e1) {e1.printStackTrace();}
             }
 		});
@@ -207,10 +197,10 @@ class Pane extends JPanel {
 		JPanel refreshpane = new JPanel();
 		refreshpane.setLayout(new BoxLayout(refreshpane,BoxLayout.Y_AXIS));
 		refreshpane.add(Box.createRigidArea(new Dimension(0,20)));
-		refreshpane.add(autorefreshfollowing);
+		refreshpane.add(autorestorefollowing);
 		refreshpane.add(Box.createRigidArea(new Dimension(0,20)));
-		refreshfollowing.setMargin(new java.awt.Insets(1, 2, 1, 2));
-		refreshpane.add(refreshfollowing);
+		restorefollowing.setMargin(new java.awt.Insets(1, 2, 1, 2));
+		refreshpane.add(restorefollowing);
 		refreshpane.add(Box.createRigidArea(new Dimension(0,20)));
 		refreshpane.add(savefollowing);
 		

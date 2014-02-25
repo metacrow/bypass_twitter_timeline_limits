@@ -2,14 +2,17 @@ import java.awt.Desktop;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -127,7 +130,7 @@ public class twitter_limit {
 	private static List<String> following = new ArrayList<String>();
 	private static long [] ids;//need this global to store following to .txt
 	private static int numofdays;
-	private static void get_Following(boolean isstoredlocally) throws TwitterException, IOException{
+	private static void get_Following(boolean isstoredlocally, boolean userloggedin) throws TwitterException, IOException{
 		if(!isstoredlocally){
 			IDs FriendsIDs = twitter.getFriendsIDs(-1);
 			ids = FriendsIDs.getIDs();//fill list with all user ids
@@ -137,55 +140,75 @@ public class twitter_limit {
 			//read the stored following ids
 			BufferedReader br = new BufferedReader(new FileReader("following.txt"));
 			
+			//i know i did this this way for a reason. Faster or something.
 			ArrayList<String> temporary = new ArrayList<String>();
 			while (br.ready()){
-			    temporary.add(br.readLine());
+				temporary.add(br.readLine());
 			}
 			br.close();
-
+	
 			ids = new long[temporary.size()];
 			for(int i=0;i<temporary.size();i++){
 				ids[i]=Long.valueOf(temporary.get(i));
 			}
 		}
 		
-		//now that we know # of following, we can make an educated guess as to the initial size of the timeline Hashmap
-		timeline = new HashMap<Long, String[]>(ids.length*30*numofdays);//sure, 30 seems a good averaging number. i guess. Times numofdays to go back
-		
-		//convert ids to screen names
-		int start=0;
-		int currentchunksize=100;
-		long [] distribids;
-		
-		while (start<ids.length)
-		{
-			distribids = new long [currentchunksize];
-			for (int i=0;i<currentchunksize;i++)
+		if(userloggedin){
+			//convert ids to screen names
+			int start=0;
+			int currentchunksize=100;
+			long [] distribids;
+			
+			while (start<ids.length)
 			{
-				distribids[i]=ids[start];//seperate friend ids into chunks (100 max chunk size)
-				start++;
+				if(ids.length-start<100){//if we have less than 100 followers left to add to userName
+		        	currentchunksize=ids.length-start;//the amount of followers left (we've gone thought the user's list of followers in chunks of 100 and have less than 100 left to search)
+		        }
+				
+				distribids = new long [currentchunksize];
+				for (int i=0;i<currentchunksize;i++)
+				{
+					distribids[i]=ids[start];//seperate friend ids into chunks (100 max chunk size)
+					start++;
+				}
+				
+				ResponseList<User> userName = twitter.lookupUsers(distribids);
+				
+		        for (User u : userName) {
+		        	following.add(u.getScreenName());
+		        }
+		        /*
+		        if(ids.length-start<100){//if we have less than 100 followers left to add to userName
+		        	currentchunksize=ids.length-start;//the amount of followers left (we've gone thought the user's list of followers in chunks of 100 and have less than 100 left to search)
+		        }
+		        else{
+		        	currentchunksize=100;//do another chunk of 100
+		        }
+		         */
 			}
-			
-			ResponseList<User> userName = twitter.lookupUsers(distribids);
-			
-	        for (User u : userName) {
-	        	following.add(u.getScreenName());
-	        }
-	        if(ids.length-start<100){//if we have less than 100 followers left to add to userName
-	        	currentchunksize=ids.length-start;//the amount of followers left (we've gone thought the user's list of followers in chunks of 100 and have less than 100 left to search)
-	        }
-	        else{
-	        	currentchunksize=100;//do another chunk of 100
-	        }
+		}
+		
+		else{
+			/*this will only be used for when the user wants to directly edit the following list, and we need to convert to
+			 * human readable screen names BUT the user isn't logged in
+			 * Don't want to do it unless we have to b/c user isn't logged in b/c its slow & costly.
+			*/
+			for(Long id:ids){
+				String url="https://twitter.com/account/redirect_by_id?id=" + id;
+				HttpURLConnection con = (HttpURLConnection)(new URL(url).openConnection());
+				con.setInstanceFollowRedirects(false);
+				con.connect();
+				String location = con.getHeaderField("Location");
+				following.add(location.substring(20));
+			}
 		}
 	}
 	
-	//store all the people user is following in txt file
-	//TODO FIX THIS THING
-	//		inefficient, b/c GUI has to call twitter to convert the ids to screen name every time it start (if user stores them) BUT if i just save the screen name is someone changes theirs it could mess stuff up
-	//		Possible solution, store both ids and screen name side by side in file, GUI can get stored screen names, program uses ids normally.
-	public static void store_following() throws TwitterException, IOException{
-		get_Following(false);
+	//if the user wants store all the people they are following, get the ids from twitter and store
+	//TODO should implement some check to prevent user from repeately calling (this uses twitter api)
+	public static void refresh_plus_store_following() throws TwitterException, IOException{
+		IDs FriendsIDs = twitter.getFriendsIDs(-1);
+		ids = FriendsIDs.getIDs();
 		BufferedWriter bw = new BufferedWriter(new FileWriter("following.txt"));
 		for(int i=0;i<ids.length;i++){
 			bw.write(String.valueOf(ids[i]));
@@ -193,6 +216,38 @@ public class twitter_limit {
 		}
 		bw.close();
 	}
+	//to allow the user to edit their following list, convert ids to screen names
+	//this only is called on gui start, and only if following is saved, so api calls shouldn't be a problem
+	public static List<String> load_and_convert_following(boolean userloggedin) throws TwitterException, IOException{
+		get_Following(true,userloggedin);
+		return following;
+	}
+	//after the user has edited their following list, convert screennames back to ids and save
+	//NOTE:this has do be done without the API, as the user might edit and save repeatedly, and converting to ids is costly w/ api
+	public static void convert_and_save_following(List<String> followingedit) throws IOException{
+		//not sure if this is the best way, but only way i've found so far
+		BufferedWriter bw = new BufferedWriter(new FileWriter("following.txt"));
+		for(String user:followingedit){
+			BufferedReader in = new BufferedReader(new InputStreamReader(new URL("https://twitter.com/i/profiles/show/" + user + "/timeline").openStream()));
+			String htmlraw = null;
+			//catch in case user inputs invalid/protected username
+			try {
+				htmlraw = in.readLine();
+			} catch (FileNotFoundException e) {
+				System.out.println(user + " is invalid or protected");
+			}
+			in.close();
+			//this is VERY slow/inefficent. Need a better way
+			if(htmlraw!=null){
+				htmlraw=htmlraw.substring(htmlraw.indexOf(user+"\\\" data-user-id=\\\"")+user.length()+18);//cut off everything before the id #
+				htmlraw=htmlraw.substring(0, htmlraw.indexOf("\\\""));//cut off everything immediately after the id
+				bw.write(htmlraw);
+				bw.newLine();
+			}
+		}
+		bw.close();
+	}
+	
 	//check to see if following stored
 	public static boolean following_stored(){
 		File f = new File("following.txt");
@@ -202,13 +257,6 @@ public class twitter_limit {
 		  else{
 			  return false;
 		  }
-	}
-	//return screen names of following for GUI (if stored locally)
-	public static List<String> all_stored_following(){
-		try {
-			get_Following(true);
-		} catch (IOException | TwitterException e) {e.printStackTrace();}
-		return following;
 	}
 	
 	//MAJOR PART 3/4 *:* getting the tweets
@@ -259,7 +307,6 @@ public class twitter_limit {
 	    Collections.reverse(timelinesortedkeys);
 	    
 	   for(Long key:timelinesortedkeys){
-	        //Map.Entry pairs = (Map.Entry)it.next();//i have no idea how Iterator works.
 	        SimpleDateFormat sdf = new SimpleDateFormat("h:mm a 'at' d, MMMM yyyy");
 	        
 	        out.write("<li class=\"stream-item\">" +
@@ -313,9 +360,11 @@ public class twitter_limit {
 	}
 	
 	//final method, call to run entire process
-	public static void runwithgui(boolean follwingstored, int numofdays) throws IOException, URISyntaxException, TwitterException{
+	public static void runwithgui(boolean follwingstored, int numofdays,boolean isuserloggedin) throws IOException, URISyntaxException, TwitterException{
 		twitter_limit.numofdays=numofdays;
-		get_Following(follwingstored);
+		get_Following(follwingstored,isuserloggedin);
+		//now that we know # of following, we can make an educated guess as to the initial size of the timeline Hashmap
+		timeline = new HashMap<Long, String[]>(following.size()*30*numofdays);//sure, 30 seems a good averaging number. i guess. Times numofdays to go back
 		create_threads_for_tweets();
 		sort_timeline();
 	}
@@ -325,7 +374,9 @@ public class twitter_limit {
 			Long test=System.currentTimeMillis();
 		Oauth_Authentication(false);
 		numofdays=2;
-		get_Following(false);
+		get_Following(false,true);
+		//now that we know # of following, we can make an educated guess as to the initial size of the timeline Hashmap
+		timeline = new HashMap<Long, String[]>(following.size()*30*numofdays);//sure, 30 seems a good averaging number. i guess. Times numofdays to go back
 			Long testthreads=System.currentTimeMillis();
 		create_threads_for_tweets();
 			System.out.println("Time of threads: " + (double)(System.currentTimeMillis()-testthreads)/(double)1000 + " seconds");
