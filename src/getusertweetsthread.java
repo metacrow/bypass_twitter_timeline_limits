@@ -42,7 +42,7 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 		long tweetid=-1;
 		
 		//first pass of user use basic url
-		String url = "https://twitter.com/i/profiles/show/" + user + "/timeline";
+		String url = "https://twitter.com/i/profiles/show/" + user + "/timeline/with_replies";
 		
 		Object[] nextmove = gethtmlfromurl(url);
 		
@@ -63,25 +63,50 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 			
 			//can use .select("input[name=buddyname]") given <input type="hidden" name="buddyname">
 			Elements alltweets = doc.getElementsByClass("js-stream-item");
-			tweetid=Long.valueOf(doc.select("li.js-stream-item").last().attr("data-item-id"))-1;
+			tweetid=Long.valueOf(alltweets.last().attr("data-item-id"))-1;
+			
+			//check if i get the old ui. Hopefully i can deprecate this out when the new ui is fully implemented
+			boolean newui=true;
+			if(!((String) nextmove[0]).contains("Grid")){
+				newui=false;
+			}
 				
 	    	//actually get the tweets
 		    for (Element tweet : alltweets){
 		    	//get timestamp
-		    	Long tweettime = Long.valueOf(tweet.select("span._timestamp").attr("data-time"));
+		    	Long tweettime;
+		    	if(newui){tweettime = Long.valueOf(tweet.select("span.js-short-timestamp").attr("data-time"));}
+		    		else{tweettime = Long.valueOf(tweet.select("span._timestamp").attr("data-time"));}	
 		    	forusertweettime = tweettime;
 		    	//get content
-		    	String tweettxt = tweet.select("p.tweet-text").html();
+		    	String tweettxt;
+		    	if(newui){tweettxt= tweet.select("p.ProfileTweet-text").html();}
+		    		else{tweettxt = tweet.select("p.tweet-text").html();}
 		    	//get direct link to each tweet
-		    	String tweetidlink=tweet.select("a.tweet-timestamp").attr("href");
+		    	String tweetidlink;
+		    	if(newui){tweetidlink=tweet.select("a.ProfileTweet-timestamp").attr("href");}
+		    		else{tweetidlink=tweet.select("a.tweet-timestamp").attr("href");}
 		    	//get avatar url
-		    	String avatarurl = tweet.select("img.avatar").attr("src");
+		    	String avatarurl;
+		    	if(newui){avatarurl= tweet.select("img.ProfileTweet-avatar").attr("src");}
+		    		else{avatarurl = tweet.select("img.avatar").attr("src");}
 		    	//get user profile name
-		    	String profilename = tweet.select("strong.fullname").text();
+		    	String profilename;
+		    	if(newui){profilename = tweet.select("b.ProfileTweet-fullname").text();}
+		    		else{profilename = tweet.select("strong.fullname").text();}
 		    	//get user username *cant use String user in case its a retweet
-		    	String username = tweet.select("span.username").select("b").text();
+		    	String username;
+		    	if(newui){username= tweet.select("span.ProfileTweet-screenname").text();}
+		    		else{username = tweet.select("span.username").select("b").text();}
 		    	//retweet
-		    	String retweet = tweet.select("div.context").select("span.js-retweet-text").select("a.js-user-profile-link").text();
+		    	String retweet;
+		    	if(newui){
+		    		retweet = tweet.select("div.ProfileTweet-context").select("span.js-retweet-text").text();
+			    	if(!retweet.equals("")){
+			    		retweet=username;
+			    	}
+		    	}
+		    		else{retweet = tweet.select("div.context").select("span.js-retweet-text").select("a.js-user-profile-link").text();}
 		    	
 		    	if(forusertweettime>=askedtime){//in case user hasn't tweeted for ages don't get tweets past asked date
 		    		timeline.put(tweettime,new String[] {username,profilename,tweettxt,avatarurl,retweet,tweetidlink});
@@ -89,7 +114,7 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 		    }
 		    //second or more passes, have gotten tweetid, use that
 			if(tweetid!=-1){
-				url = "https://twitter.com/i/profiles/show/"+user+"/timeline?include_available_features=1&include_entities=1&last_note_ts=0&max_id="+tweetid;
+				url = "https://twitter.com/i/profiles/show/"+user+"/timeline/with_replies?max_id="+tweetid;
 			}
 			nextmove = gethtmlfromurl(url);
 	    }
