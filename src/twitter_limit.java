@@ -296,7 +296,7 @@ public class twitter_limit {
 	    
 	    //beginning of html: add the stylesheets
 	    out.write("<link rel=\"stylesheet\" href=\"https://abs.twimg.com/a/1392075216/css/t1/rosetta_core.bundle.css\" type=\"text/css\">" +
-	    			"<style> li {list-style-type: none;} .tweet .time{float: right;} </style>"+
+	    			"<style> li {list-style-type: none;} .tweet .time{float: right;} .u-isHiddenVisually{position: relative !important;} </style>"+
 	    			"<meta charset=\"utf-8\">");
 	    out.newLine();
 	    
@@ -317,7 +317,7 @@ public class twitter_limit {
 	        					"<div class=\"with-icn\">" +
 	        						"<span class=\"Icon Icon--retweeted Icon--small\"></span>" +
 	        						"<span class=\"js-retweet-text\">" +
-	        							"Retweeted by <b>"+((String[])timeline.get(key))[4]+"</b>" +
+	        							((String[])timeline.get(key))[4]+
 	        						"</span>" +
 								"</div>" +
 							"</div>");
@@ -331,7 +331,6 @@ public class twitter_limit {
 									((String[])timeline.get(key))[1] +
 								"</strong>" +
 								"<span class=\"username\">" +
-									"<s>@</s>" +
 									"<b>"+((String[])timeline.get(key))[0]+"</b>" +
 								"</span>" +
 							"</a>" +

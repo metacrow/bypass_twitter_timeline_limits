@@ -62,11 +62,12 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 			Document doc = Jsoup.parse((String) nextmove[0]);
 			
 			//can use .select("input[name=buddyname]") given <input type="hidden" name="buddyname">
-			Elements alltweets = doc.getElementsByClass("js-stream-item");
+			Elements alltweets = doc.select("div.js-stream-item");
 			tweetid=Long.valueOf(alltweets.last().attr("data-item-id"))-1;
 			
 			//check if i get the old ui. Hopefully i can deprecate this out when the new ui is fully implemented
 			boolean newui=true;
+			//this is problematic b/c it also will proc if a user tweets "grid"
 			if(!((String) nextmove[0]).contains("Grid")){
 				newui=false;
 			}
@@ -74,10 +75,8 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 	    	//actually get the tweets
 		    for (Element tweet : alltweets){
 		    	//get timestamp
-		    	Long tweettime;
-		    	if(newui){tweettime = Long.valueOf(tweet.select("span.js-short-timestamp").attr("data-time"));}
-		    		else{tweettime = Long.valueOf(tweet.select("span._timestamp").attr("data-time"));}	
-		    	forusertweettime = tweettime;
+		    	if(newui){forusertweettime = Long.valueOf(tweet.select("span.js-short-timestamp").attr("data-time"));}
+		    		else{forusertweettime = Long.valueOf(tweet.select("span._timestamp").attr("data-time"));}
 		    	//get content
 		    	String tweettxt;
 		    	if(newui){tweettxt= tweet.select("p.ProfileTweet-text").html();}
@@ -99,24 +98,21 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 		    	if(newui){username= tweet.select("span.ProfileTweet-screenname").text();}
 		    		else{username = tweet.select("span.username").select("b").text();}
 		    	//retweet
-		    	String retweet;
-		    	if(newui){
-		    		retweet = tweet.select("div.ProfileTweet-context").select("span.js-retweet-text").text();
-			    	if(!retweet.equals("")){
-			    		retweet=username;
-			    	}
-		    	}
+		    	String retweet="";
+		    	if(newui){retweet = tweet.select("div.ProfileTweet-context").select("span.js-retweet-text").html();}
 		    		else{retweet = tweet.select("div.context").select("span.js-retweet-text").select("a.js-user-profile-link").text();}
 		    	
 		    	if(forusertweettime>=askedtime){//in case user hasn't tweeted for ages don't get tweets past asked date
-		    		timeline.put(tweettime,new String[] {username,profilename,tweettxt,avatarurl,retweet,tweetidlink});
+		    		timeline.put(forusertweettime,new String[] {username,profilename,tweettxt,avatarurl,retweet,tweetidlink});
 		    	}
 		    }
 		    //second or more passes, have gotten tweetid, use that
 			if(tweetid!=-1){
 				url = "https://twitter.com/i/profiles/show/"+user+"/timeline/with_replies?max_id="+tweetid;
 			}
-			nextmove = gethtmlfromurl(url);
+			if(forusertweettime>=askedtime){
+				nextmove = gethtmlfromurl(url);
+			}
 	    }
 		return timeline;
 	  }
@@ -167,16 +163,16 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 		    	//get avatar url
 		    	String avatarurl="";
 		    	if(doc!=null){
-		    		avatarurl = doc.select("img.avatar").attr("src");
+		    		avatarurl = doc.select("img.ProfileAvatar-image").attr("src");
 		    	}
 		    	//get user profile name
 		    	String profilename = "";
 		    	if(doc!=null){
-		    		profilename = doc.select("h1.fullname").select("span.profile-field").text();
+		    		profilename = doc.select("h1.ProfileHeaderCard-name").select("a.ProfileHeaderCard-nameLink").text();
 		    	}
 		    	
 		    	if(forusertweettime>=askedtime){//in case user hasn't tweeted for ages don't get tweets past asked date
-		    		timeline.put(tweettime,new String[] {user,profilename,tweettxt,avatarurl,"",tweetidlink});
+		    		timeline.put(tweettime,new String[] {"@"+user,profilename,tweettxt,avatarurl,"",tweetidlink});
 		    	}
 		    }
 		    curpage++;
@@ -212,15 +208,15 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 			}
 		}
 		
-		//cut off the json beginning and end
-		html=html.substring(html.indexOf("items_html\":")+15, (html.length()-2));
-		
 		//if user has no tweets
 		//TODO fix, not the best
 		if(html.length()<50){
 			return new Object[]{"",2};
 		}
 		
+		//cut off the json beginning and end
+		html=html.substring(html.indexOf("items_html\":")+15, (html.length()-2));
+
 		//decode txt with string literals to unicode
 		String escapedhtml = StringEscapeUtils.unescapeJava(html);
 		
