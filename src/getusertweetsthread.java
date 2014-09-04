@@ -62,7 +62,7 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 			Document doc = Jsoup.parse((String) nextmove[0]);
 			
 			//can use .select("input[name=buddyname]") given <input type="hidden" name="buddyname">
-			Elements alltweets = doc.select("class.js-stream-item");
+			Elements alltweets = doc.select("div[data-item-type=tweet]");
 			tweetid=Long.valueOf(alltweets.last().attr("data-item-id"))-1;
 				
 	    	//actually get the tweets
