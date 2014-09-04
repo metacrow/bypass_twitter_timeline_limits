@@ -62,45 +62,25 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 			Document doc = Jsoup.parse((String) nextmove[0]);
 			
 			//can use .select("input[name=buddyname]") given <input type="hidden" name="buddyname">
-			Elements alltweets = doc.select("div.js-stream-item");
+			Elements alltweets = doc.select("class.js-stream-item");
 			tweetid=Long.valueOf(alltweets.last().attr("data-item-id"))-1;
-			
-			//check if i get the old ui. Hopefully i can deprecate this out when the new ui is fully implemented
-			boolean newui=true;
-			//this is problematic b/c it also will proc if a user tweets "grid"
-			if(!((String) nextmove[0]).contains("Grid")){
-				newui=false;
-			}
 				
 	    	//actually get the tweets
 		    for (Element tweet : alltweets){
 		    	//get timestamp
-		    	if(newui){forusertweettime = Long.valueOf(tweet.select("span.js-short-timestamp").attr("data-time"));}
-		    		else{forusertweettime = Long.valueOf(tweet.select("span._timestamp").attr("data-time"));}
+		    	forusertweettime = Long.valueOf(tweet.select("span.js-short-timestamp").attr("data-time"));
 		    	//get content
-		    	String tweettxt;
-		    	if(newui){tweettxt= tweet.select("p.ProfileTweet-text").html();}
-		    		else{tweettxt = tweet.select("p.tweet-text").html();}
+		    	String tweettxt= tweet.select("p.ProfileTweet-text").html();
 		    	//get direct link to each tweet
-		    	String tweetidlink;
-		    	if(newui){tweetidlink=tweet.select("a.ProfileTweet-timestamp").attr("href");}
-		    		else{tweetidlink=tweet.select("a.tweet-timestamp").attr("href");}
+		    	String tweetidlink=tweet.select("a.ProfileTweet-timestamp").attr("href");
 		    	//get avatar url
-		    	String avatarurl;
-		    	if(newui){avatarurl= tweet.select("img.ProfileTweet-avatar").attr("src");}
-		    		else{avatarurl = tweet.select("img.avatar").attr("src");}
+		    	String avatarurl= tweet.select("img.ProfileTweet-avatar").attr("src");
 		    	//get user profile name
-		    	String profilename;
-		    	if(newui){profilename = tweet.select("b.ProfileTweet-fullname").text();}
-		    		else{profilename = tweet.select("strong.fullname").text();}
+		    	String profilename = tweet.select("b.ProfileTweet-fullname").text();
 		    	//get user username *cant use String user in case its a retweet
-		    	String username;
-		    	if(newui){username= tweet.select("span.ProfileTweet-screenname").text();}
-		    		else{username = tweet.select("span.username").select("b").text();}
+		    	String username= tweet.select("span.ProfileTweet-screenname").text();
 		    	//retweet
-		    	String retweet="";
-		    	if(newui){retweet = tweet.select("div.ProfileTweet-context").select("span.js-retweet-text").html();}
-		    		else{retweet = tweet.select("div.context").select("span.js-retweet-text").select("a.js-user-profile-link").text();}
+		    	String retweet = tweet.select("div.ProfileTweet-context").select("span.js-retweet-text").html();
 		    	
 		    	if(forusertweettime>=askedtime){//in case user hasn't tweeted for ages don't get tweets past asked date
 		    		timeline.put(forusertweettime,new String[] {username,profilename,tweettxt,avatarurl,retweet,tweetidlink});
