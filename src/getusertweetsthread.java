@@ -62,13 +62,17 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 			Document doc = Jsoup.parse((String) nextmove[0]);
 			
 			//can use .select("input[name=buddyname]") given <input type="hidden" name="buddyname">
-			Elements alltweets = doc.select("div[data-item-type=tweet]");
+			Elements alltweets = doc.select("div.StreamItem");
 			tweetid=Long.valueOf(alltweets.last().attr("data-item-id"))-1;
 				
 	    	//actually get the tweets
 		    for (Element tweet : alltweets){
 		    	//get timestamp
-		    	forusertweettime = Long.valueOf(tweet.select("span.js-short-timestamp").attr("data-time"));
+		    	try{
+		    		forusertweettime = Long.valueOf(tweet.select("span.js-short-timestamp").attr("data-time"));
+		    	}catch(Exception e){
+		    		System.out.println(tweet);
+		    	}
 		    	//get content
 		    	String tweettxt= tweet.select("p.ProfileTweet-text").html();
 		    	//get direct link to each tweet
@@ -86,6 +90,7 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 		    		timeline.put(forusertweettime,new String[] {username,profilename,tweettxt,avatarurl,retweet,tweetidlink});
 		    	}
 		    }
+		    
 		    //second or more passes, have gotten tweetid, use that
 			if(tweetid!=-1){
 				url = "https://twitter.com/i/profiles/show/"+user+"/timeline/with_replies?max_id="+tweetid;
@@ -94,6 +99,7 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 				nextmove = gethtmlfromurl(url);
 			}
 	    }
+		
 		return timeline;
 	  }
 	  
