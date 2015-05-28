@@ -62,29 +62,29 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 			Document doc = Jsoup.parse((String) nextmove[0]);
 			
 			//can use .select("input[name=buddyname]") given <input type="hidden" name="buddyname">
-			Elements alltweets = doc.select("div.StreamItem");
+			Elements alltweets = ErrorCheckingSelect(doc,"div.js-stream-tweet");
 			tweetid=Long.valueOf(alltweets.last().attr("data-item-id"))-1;
 				
 	    	//actually get the tweets
 		    for (Element tweet : alltweets){
 		    	//get timestamp
 		    	try{
-		    		forusertweettime = Long.valueOf(tweet.select("span.js-short-timestamp").attr("data-time"));
+		    		forusertweettime = Long.valueOf(ErrorCheckingSelect(tweet,"span.js-short-timestamp").attr("data-time"));
 		    	}catch(Exception e){
-		    		System.out.println(tweet);
+		    		System.err.println(tweet);
 		    	}
 		    	//get content
-		    	String tweettxt= tweet.select("p.ProfileTweet-text").html();
+		    	String tweettxt= ErrorCheckingSelect(tweet,"p.js-tweet-text").html();
 		    	//get direct link to each tweet
-		    	String tweetidlink=tweet.select("a.ProfileTweet-timestamp").attr("href");
+		    	String tweetidlink=ErrorCheckingSelect(tweet,"a.tweet-timestamp").attr("href");
 		    	//get avatar url
-		    	String avatarurl= tweet.select("img.ProfileTweet-avatar").attr("src");
+		    	String avatarurl= ErrorCheckingSelect(tweet,"img.avatar").attr("src");
 		    	//get user profile name
-		    	String profilename = tweet.select("b.ProfileTweet-fullname").text();
+		    	String profilename = ErrorCheckingSelect(tweet,"strong.fullname").text();
 		    	//get user username *cant use String user in case its a retweet
-		    	String username= tweet.select("span.ProfileTweet-screenname").text();
+		    	String username= ErrorCheckingSelect(tweet,"span.username").text();
 		    	//retweet
-		    	String retweet = tweet.select("div.ProfileTweet-context").select("span.js-retweet-text").html();
+		    	String retweet = ErrorCheckingSelect(tweet,"div.context").select("span.js-retweet-text").html();
 		    	
 		    	if(forusertweettime>=askedtime){//in case user hasn't tweeted for ages don't get tweets past asked date
 		    		timeline.put(forusertweettime,new String[] {username,profilename,tweettxt,avatarurl,retweet,tweetidlink});
@@ -210,4 +210,16 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 		return new Object[]{escapedhtml,0};
 	  }
 	  
+	  //do more compete checking on selection, inform of error + swallow
+	  private Elements ErrorCheckingSelect(Element selector, String selection){
+	      Elements returned=selector.select(selection);
+	      
+	      if(returned==null){
+	          System.err.println("Null element selected for selection "+selection);
+	      }else if(returned.html().isEmpty() && returned.attr("src").isEmpty() && !selection.equals("context")){
+	           System.err.println("Element selected for selection "+selection+" has no html. Probably invalid.");
+	      }
+	      
+	      return returned;
+	  }
 	}
