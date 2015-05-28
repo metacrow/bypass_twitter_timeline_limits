@@ -216,7 +216,7 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 	      
 	      if(returned==null){
 	          System.err.println("Null element selected for selection "+selection);
-	      }else if(returned.html().isEmpty() && returned.attr("src").isEmpty() && !selection.equals("context")){
+	      }else if(returned.html().isEmpty() && returned.attr("src").isEmpty() && !selection.equals("div.context")){
 	           System.err.println("Element selected for selection "+selection+" has no html. Probably invalid.");
 	      }
 	      
