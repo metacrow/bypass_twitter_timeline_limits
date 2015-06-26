@@ -93,7 +93,7 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 		    
 		    //second or more passes, have gotten tweetid, use that
 			if(tweetid!=-1){
-				url = "https://twitter.com/i/profiles/show/"+user+"/timeline/with_replies?max_id="+tweetid;
+				url = "https://twitter.com/i/profiles/show/"+user+"/timeline/with_replies?max_position="+tweetid;
 			}
 			if(forusertweettime>=askedtime){
 				nextmove = gethtmlfromurl(url);
