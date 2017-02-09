@@ -2,7 +2,9 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,7 @@ import twitter4j.Paging;
 import twitter4j.Status;
 import twitter4j.Twitter;
 import twitter4j.TwitterException;
+import twitter4j.internal.http.HttpResponseCode;
 
 class getusertweetsthread implements Callable<Map<Long, String[]>>{ 
 	private int days;
@@ -41,8 +44,13 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 		
 		long tweetid=-1;
 		
+		//get bootstrap cookie
+		if(!GetCookie("https://twitter.com/"+user+"/with_replies")){
+		    return timeline;
+		}
+		
 		//first pass of user use basic url
-		String url = "https://twitter.com/i/profiles/show/" + user + "/timeline/with_replies";
+		String url = "https://twitter.com/i/profiles/show/"+user+"/timeline/tweets?include_available_features=1&include_entities=1&reset_error_state=false&max_position=999999999999999999";
 		
 		Object[] nextmove = gethtmlfromurl(url);
 		
@@ -93,7 +101,7 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 		    
 		    //second or more passes, have gotten tweetid, use that
 			if(tweetid!=-1){
-				url = "https://twitter.com/i/profiles/show/"+user+"/timeline/with_replies?max_position="+tweetid;
+			    url = "https://twitter.com/i/profiles/show/"+user+"/timeline/tweets?include_available_features=1&include_entities=1&reset_error_state=false&max_position="+tweetid;
 			}
 			if(forusertweettime>=askedtime){
 				nextmove = gethtmlfromurl(url);
@@ -167,6 +175,40 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
     	return;
 	  }
 	  
+	  private String[] cookieData = new String[3];
+
+	  private void ExtractCookie(URLConnection urlConn){
+          String headerName=null;
+          for (int i=1; (headerName = urlConn.getHeaderFieldKey(i))!=null; i++) {
+              if (headerName.toLowerCase().equals("set-cookie")) {                  
+                  String cookie = urlConn.getHeaderField(i);
+                  cookie = cookie.substring(0, cookie.indexOf(";"));
+                  String cookieName = cookie.substring(0, cookie.indexOf("="));
+                  if(cookieName.toLowerCase().equals("_twitter_sess")){
+                      cookieData[0] = cookie;
+                  }if(cookieName.toLowerCase().equals("guest_id")){
+                      cookieData[1] = cookie;
+                  }if(cookieName.toLowerCase().equals("ct0")){
+                      cookieData[2] = cookie;
+                  }
+              }
+          }
+	  }
+	  
+	  private boolean GetCookie(String url){
+	      try{
+    	      URL myUrl = new URL(url);
+    	      URLConnection urlConn = myUrl.openConnection();
+    	      urlConn.connect();
+    	      ExtractCookie(urlConn);
+    	      return true;
+	      }catch(Exception e){
+	          e.printStackTrace();
+	          System.err.println("Unable to get cookie for user "+user);
+	          return false;
+	      }
+	  }
+	  
 	  public Object[] gethtmlfromurl(String urladd){
 		String html = "";
 		int rtry=6;
@@ -177,7 +219,25 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 		//try to connect (don't just drop after 1 try)
 		while(html.equals("")){
 			try {
-				BufferedReader in = new BufferedReader(new InputStreamReader(new URL(urladd).openStream(), "UTF-8"));
+			    HttpURLConnection urlConn = (HttpURLConnection) new URL(urladd).openConnection();
+			    urlConn.setRequestProperty("Cookie",cookieData[0]+";"+cookieData[1]+";"+cookieData[2]);
+			    urlConn.connect();
+			    ExtractCookie(urlConn);
+			    int a = urlConn.getResponseCode();
+			    if(urlConn.getResponseCode()==HttpResponseCode.FORBIDDEN){
+		             //user account is private
+	                return new Object[]{"",1};
+			    }
+			    if(urlConn.getResponseCode()==HttpResponseCode.TOO_MANY_REQUESTS){
+			        try {
+			            System.out.println("Warn: received too many requests. Trying again in 10s");
+                        Thread.sleep(10000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+			        //rtry=7;
+			    }
+				BufferedReader in = new BufferedReader(new InputStreamReader(urlConn.getInputStream(), "UTF-8"));
 				//get the text from url
 				html = in.readLine();
 				in.close();
@@ -190,13 +250,14 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 					System.out.println("CONNECTION ERROR: COULDN'T CONNECT TO USER " + user+ ". *Probably timeout*");
 					return new Object[]{"",3};
 				}
-				rtry--;
 			}
+            rtry--;
 		}
 		
 		//if user has no tweets
 		//TODO fix, not the best
 		if(html.length()<50){
+            System.out.println("CONNECTION ERROR: COULDN'T CONNECT TO USER " + user+ ".");
 			return new Object[]{"",2};
 		}
 		
@@ -215,9 +276,11 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 	      Elements returned=selector.select(selection);
 	      
 	      if(returned==null){
-	          System.err.println("Null element selected for selection "+selection);
+	          System.err.println("Null element selected for selection "+selection+" on user "+user);
+	          return null;
 	      }else if(returned.html().isEmpty() && returned.attr("src").isEmpty() && !selection.equals("div.context")){
-	           System.err.println("Element selected for selection "+selection+" has no html. Probably invalid.");
+	           System.err.println("Element selected for selection "+selection+" has no html. Probably invalid."+"Error on user "+user);
+	           return null;
 	      }
 	      
 	      return returned;
