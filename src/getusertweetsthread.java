@@ -17,11 +17,11 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+import twitter4j.HttpResponseCode;
 import twitter4j.Paging;
 import twitter4j.Status;
 import twitter4j.Twitter;
 import twitter4j.TwitterException;
-import twitter4j.internal.http.HttpResponseCode;
 
 class getusertweetsthread implements Callable<Map<Long, String[]>>{ 
 	private int days;
@@ -37,6 +37,7 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 	  }
 
 	  public Map<Long, String[]> call(){
+		System.out.println("Reading "+user);
 		//TODO i should probably consider a separate text document with all the info about what html element = what and pass that in to each thread, so i can update it when the ui changes
 		long timetogoback=86400*days;
 		long forusertweettime = System.currentTimeMillis() / 1000L;
@@ -71,8 +72,13 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 			
 			//can use .select("input[name=buddyname]") given <input type="hidden" name="buddyname">
 			Elements alltweets = ErrorCheckingSelect(doc,"div.js-stream-tweet");
-			tweetid=Long.valueOf(alltweets.last().attr("data-item-id"))-1;
-				
+			try{
+				tweetid=Long.valueOf(alltweets.last().attr("data-item-id"))-1;
+			}catch(Exception e){
+				e.printStackTrace();
+				throw e;
+			}
+			
 	    	//actually get the tweets
 		    for (Element tweet : alltweets){
 		    	//get timestamp
@@ -211,7 +217,7 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 	  
 	  public Object[] gethtmlfromurl(String urladd){
 		String html = "";
-		int rtry=6;
+		int rtry=16;
 		
 		//TODO maybe should use a finally here
 		//also, fix this clusterfuck
