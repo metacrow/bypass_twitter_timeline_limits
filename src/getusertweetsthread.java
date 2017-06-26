@@ -72,6 +72,9 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 			
 			//can use .select("input[name=buddyname]") given <input type="hidden" name="buddyname">
 			Elements alltweets = ErrorCheckingSelect(doc,"div.js-stream-tweet");
+			if(alltweets == null){
+			    return timeline;
+			}
 			try{
 				tweetid=Long.valueOf(alltweets.last().attr("data-item-id"))-1;
 			}catch(Exception e){
