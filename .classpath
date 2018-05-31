@@ -2,8 +2,8 @@
 <classpath>
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry kind="lib" path="C:/Users/ThinkPad_Wangblows/Desktop/.external libraries/commons-lang3-3.4/commons-lang3-3.4.jar"/>
-	<classpathentry kind="lib" path="C:/Users/ThinkPad_Wangblows/Desktop/.external libraries/jsoup-1.8.3.jar"/>
-	<classpathentry kind="lib" path="C:/Users/ThinkPad_Wangblows/Desktop/.external libraries/twitter4j-4.0.4/lib/twitter4j-core-4.0.4.jar"/>
+	<classpathentry kind="lib" path="E:/Code Workspace/.external libraries/commons-lang3-3.2.1/commons-lang3-3.2.1.jar"/>
+	<classpathentry kind="lib" path="E:/Code Workspace/.external libraries/jsoup-1.7.1.jar"/>
+	<classpathentry kind="lib" path="E:/Code Workspace/.external libraries/twitter4j-4.0.4/lib/twitter4j-core-4.0.4.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

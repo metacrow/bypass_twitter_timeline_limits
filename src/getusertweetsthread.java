@@ -51,7 +51,7 @@ class getusertweetsthread implements Callable<Map<Long, String[]>>{
 		}
 		
 		//first pass of user use basic url
-		String url = "https://twitter.com/i/profiles/show/"+user+"/timeline/tweets?include_available_features=1&include_entities=1&reset_error_state=false&max_position=999999999999999999";
+		String url = "https://twitter.com/i/profiles/show/"+user+"/timeline/tweets?include_available_features=1&include_entities=1&reset_error_state=false";
 		
 		Object[] nextmove = gethtmlfromurl(url);
 		
